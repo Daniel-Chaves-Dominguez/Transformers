@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Things</title>
+</head>
+<body>
+    <h1>Translating with transformers</h1>
+    <textarea  placeholder="write something in English" id="inputText" rows="5" cols="50"></textarea>
+    <br>
+    <button id="trButton">Translate</button>
+    <p id="status"></p>
+    <h3>Translation</h3>
+    <p id="result"></p>
+
+    <script type="module">
+        import {pipeline} from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2';
+
+        const trButton = document.getElementById('trButton')
+        const status = document.getElementById('status')
+        const result = document.getElementById('result')
+
+        let translator = null;
+
+        async function init() {
+            status.innerText = 'Loading model...';
+            const supportsGpu = typeof navigator !== 'undefined' && 'gpu' in navigator;
+            translator = await pipeline('text-generation', 'HuggingFaceTB/SmolLM-135M-Instruct', {
+                device: supportsGpu ? 'webgpu' : 'wasm'
+            });
+            status.innerText = 'Model loaded';
+        }
+
+        async function translate() {
+            const text = document.getElementById('inputText').value;
+            if (!text) return;
+            status.innerText = 'Translating...';
+            const message = [
+                {role: 'system', content:'You are helpful assistant'}, 
+                {role:'user', content:text}
+            ]
+            const streamer = new TextStreamer(translator.tokenizer, {
+                skip_prompt: true,
+                callback_function: (token) => {
+                    result.innerText += (' ' + token);
+                }
+            })
+            const output = await translator(message, {max_new_tokens: 128, streamer: streamer});
+            status.innerText = 'Done!';
+            //result.innerText = output[0].generated_text.at(-1).content;
+        }
+
+        trButton.addEventListener('click', translate);
+
+        init();
+    </script>
+</body>
+</html>
